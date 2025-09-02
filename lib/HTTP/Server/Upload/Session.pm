@@ -321,7 +321,9 @@ HTTP::Server::Upload::Session - Class representing client sessions
 
 =head1 DESCRIPTION
 
-This module is part of the HTTP::Server::Upload distribution.
+This module is part of the HTTP::Server::Upload distribution, and is used
+internally by that module. There should be no reason to use this class by
+itself.
 
 =head1 META
 
