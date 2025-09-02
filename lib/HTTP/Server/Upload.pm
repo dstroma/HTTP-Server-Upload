@@ -1,8 +1,7 @@
-package HTTP::Server::Upload;
 use v5.42;
 use experimental 'class';
-
-class HTTP::Server::Upload {
+package HTTP::Server::Upload 0.01;
+class HTTP::Server::Upload 0.01 {
   use IO::Socket ();
   use IO::Select ();
   use HTTP::Server::Upload::Session ();
@@ -27,6 +26,8 @@ class HTTP::Server::Upload {
   field $write_timeout        :param :reader = 60;
   field $max_header_size      :param :reader = 64 * KiB;
   field $max_body_size        :param :reader =  4 * GiB;
+  field $max_bytes_at_a_time  :param :reader =  4 * KiB;
+  field $max_cycles_at_a_time :param :reader = 128;
   field $server_io;
 
   ADJUST { chop $store_dir if substr($store_dir, -1, 1) =~ m`[\/\\]` }
@@ -71,13 +72,13 @@ class HTTP::Server::Upload {
 
         # Existing connection (reading)
         my $session = $sessions{$fh};
-        $session->read if $session->reading;
+        $session->read($max_bytes_at_a_time, $max_cycles_at_a_time) if $session->reading;
       }
 
       # Write?
       for my $fh ($select->can_write($select_timeout)) {
         my $session = $sessions{$fh};
-        $session->write if $session->writing;
+        $session->write($max_bytes_at_a_time, $max_cycles_at_a_time) if $session->writing;
       }
 
       # Purge completed sessions (do not use keys %sessions, it won't work)
