@@ -1,5 +1,5 @@
 {
-   "abstract" : "It's new $module",
+   "abstract" : "HTTP server just for uploads",
    "author" : [
       "Dondi Michael Stroma <dstroma@gmail.com>"
    ],
@@ -42,7 +42,8 @@
       },
       "runtime" : {
          "requires" : {
-            "perl" : "5.008001"
+            "HTTP::Status" : "6.00",
+            "perl" : "v5.42.0"
          }
       },
       "test" : {
@@ -52,7 +53,18 @@
       }
    },
    "release_status" : "unstable",
+   "resources" : {
+      "bugtracker" : {
+         "web" : "https://github.com/dstroma/HTTP-Server-Upload/issues"
+      },
+      "homepage" : "https://github.com/dstroma/HTTP-Server-Upload",
+      "repository" : {
+         "type" : "git",
+         "url" : "https://github.com/dstroma/HTTP-Server-Upload.git",
+         "web" : "https://github.com/dstroma/HTTP-Server-Upload"
+      }
+   },
    "version" : "0.01",
    "x_serialization_backend" : "JSON::PP version 4.16",
-   "x_static_install" : 1
+   "x_static_install" : 0
 }
