@@ -1,6 +1,6 @@
 use v5.42;
 use experimental 'class';
-package class HTTP::Server::Upload::Session;
+package HTTP::Server::Upload::Session;
 class HTTP::Server::Upload::Session {
   use HTTP::Status qw(:constants status_message);
 
