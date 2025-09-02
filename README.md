@@ -82,11 +82,3 @@ it under the same terms as Perl itself.
 # AUTHOR
 
 Dondi Michael Stroma <dstroma@gmail.com>
-
-# POD ERRORS
-
-Hey! **The above document had some coding errors, which are explained below:**
-
-- Around line 221:
-
-    You forgot a '=back' before '=head1'

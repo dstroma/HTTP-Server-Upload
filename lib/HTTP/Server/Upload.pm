@@ -218,6 +218,8 @@ Progress is stored in a .prog file as a single byte representing a signed 8-bit
 integer. Values from 0 to 100 represent the progress in percent; a value of 127
 represents a completed upload, while negative values represent errors.
 
+=back
+
 =head1 NON-FEATURES
 
 This server does not parse request bodies into paramaters or individual files.
