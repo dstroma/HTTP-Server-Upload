@@ -9,6 +9,9 @@ class HTTP::Server::Upload 0.01 {
   use constant MiB => 1024*KiB;
   use constant GiB => 1024*MiB;
 
+  field $daemonize            :param :reader = false;
+  field $log_file             :param :reader = undef;
+  field $log_fh;
   field $listen               :param :reader = 6896;
   field $listen_queue         :param :reader = 10;
   field $max_clients          :param :reader = 5;
@@ -29,11 +32,15 @@ class HTTP::Server::Upload 0.01 {
   field $max_bytes_at_a_time  :param :reader =  4 * KiB;
   field $max_cycles_at_a_time :param :reader = 128;
   field $server_io;
+  field $forked;
 
-  ADJUST { chop $store_dir if substr($store_dir, -1, 1) =~ m`[\/\\]` }
+  ADJUST  { chop $store_dir if substr($store_dir, -1, 1) =~ m`[\/\\]` }
+  DESTROY { $_[0]->stop }
 
   method start {
-    $self->check_authfile if $auth_required;
+    $forked = fork() and exit if $daemonize;
+    $self->redirect_output    if $log_file;
+    $self->check_authfile     if $auth_required;
 
     my %std_args = (Listen => $listen_queue, Blocking => 0);
     if ($listen =~ m/^\d+$/) {
@@ -45,8 +52,21 @@ class HTTP::Server::Upload 0.01 {
     }
     $server_io or die($IO::Socket::errstr || $@ || $! || 'Unknown error');
 
-    warn "Server $server_io starting, listening on $listen; PID $$\n";
+    warn "Server $server_io (PID $$) starting. Listening on $listen.\n";
     $self->serve;
+  }
+
+  method stop {
+    return if $forked;
+    warn "Server $server_io (PID $$) stopping.\n";
+    close $log_fh if $log_fh;
+  }
+
+  method redirect_output () {
+    open $log_fh, '>>', $log_file
+      or die "Cannot open $log_file: $!\n";
+    *STDOUT = $log_fh;
+    *STDERR = $log_fh;
   }
 
   method serve () {
@@ -96,7 +116,7 @@ class HTTP::Server::Upload 0.01 {
 
       # Clean up
       if (!$cleanup_time or time() > $cleanup_time + 60) {
-        $self->check_authfile;
+        $self->check_authfile if $auth_required;
         $cleanup_time = time();
       }
 
@@ -107,6 +127,7 @@ class HTTP::Server::Upload 0.01 {
   field %auth;
   field $authfile_mtime;
   method check_authfile ($force_reload = undef) {
+    return unless $auth_required;
     my $authfile_mtime_now = (stat($auth_file))[9];
 
     if ($force_reload or !$authfile_mtime or $authfile_mtime != $authfile_mtime_now) {

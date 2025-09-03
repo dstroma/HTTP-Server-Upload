@@ -6,6 +6,8 @@ use HTTP::Server::Upload;
 # Getopt::Long is 1500 lines!
 my $parse_argv = sub {
   my @maybe_params = qw(
+    daemonize log_file
+
     listen listen_queue max_clients auth_required auth_file store_dir
 
     require_id require_placeholder overwrite use_subdir
@@ -70,6 +72,8 @@ my $parse_argv = sub {
 
   return \%args;
 };
+
+$SIG{'TERM'} = sub { warn "Caught SIGTERM\n"; exit };
 
 my $server = HTTP::Server::Upload->new($parse_argv->()->%*);
 undef $parse_argv; # Free memory
