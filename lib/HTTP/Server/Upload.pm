@@ -1,7 +1,6 @@
 use v5.42;
 use experimental 'class';
-package HTTP::Server::Upload 0.01;
-class HTTP::Server::Upload 0.01 {
+class   HTTP::Server::Upload 0.01 {
   use IO::Socket ();
   use IO::Select ();
   use HTTP::Server::Upload::Session ();
@@ -140,7 +139,7 @@ class HTTP::Server::Upload 0.01 {
         close $fh;
         $authfile_mtime = (stat($auth_file))[9];
       } else {
-        warn sprintf("WARNING - Cannot open auth file %s! $!", $auth_file);
+        die sprintf("WARNING - Cannot open auth file %s! $!", $auth_file);
         return;
       }
     }
