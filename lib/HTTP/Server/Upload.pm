@@ -16,7 +16,7 @@ class   HTTP::Server::Upload 0.01 {
   field $max_clients          :param         = 5;
   field $auth_required        :param :reader = false;
   field $auth_file            :param         = './tmp/uploads/.auth';
-  field $store_dir            :param         = './tmp/uploads';
+  field $store_dir            :param :reader = './tmp/uploads';
   field $require_id           :param :reader = false; # If true the client must supply an ID
   field $require_placeholder  :param :reader = false;
   field $no_overwrite         :param :reader = true;
