@@ -1,6 +1,6 @@
 use v5.42;
 use experimental 'class';
-class   HTTP::Server::Upload 0.01 {
+class HTTP::Server::Upload 0.01 {
   use IO::Socket ();
   use IO::Select ();
   use HTTP::Server::Upload::Session ();
