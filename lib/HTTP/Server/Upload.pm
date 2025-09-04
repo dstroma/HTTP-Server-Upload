@@ -9,28 +9,28 @@ class HTTP::Server::Upload 0.01 {
   use constant MiB => 1024*KiB;
   use constant GiB => 1024*MiB;
 
-  field $daemonize            :param :reader = false;
-  field $log_file             :param :reader = undef;
+  field $daemonize            :param         = false;
+  field $log_file             :param         = undef;
   field $log_fh;
-  field $listen               :param :reader = 6896;
-  field $listen_queue         :param :reader = 10;
-  field $max_clients          :param :reader = 5;
+  field $listen               :param         = 6896;
+  field $listen_queue         :param         = 10;
+  field $max_clients          :param         = 5;
   field $auth_required        :param :reader = false;
-  field $auth_file            :param :reader = './tmp/uploads/.auth';
-  field $store_dir            :param :reader = './tmp/uploads';
+  field $auth_file            :param         = './tmp/uploads/.auth';
+  field $store_dir            :param         = './tmp/uploads';
   field $require_id           :param :reader = false; # If true the client must supply an ID
   field $require_placeholder  :param :reader = false;
   field $no_overwrite         :param :reader = true;
-  field $use_subdir           :param :reader = true;  # If true, will use a subdir for each upload
-  field $select_timeout_busy  :param :reader = 0.05;
-  field $select_timeout_idle  :param :reader = 0.30;
+  field $use_subdir           :param         = true;  # If true, will use a subdir for each upload
+  field $select_timeout_busy  :param         = 0.05;
+  field $select_timeout_idle  :param         = 0.30;
   field $read_timeout_head    :param :reader = 60;
   field $read_timeout_body    :param :reader = 60 * 15;
   field $write_timeout        :param :reader = 60;
   field $max_header_size      :param :reader = 64 * KiB;
   field $max_body_size        :param :reader =  4 * GiB;
-  field $max_bytes_at_a_time  :param :reader =  4 * KiB;
-  field $max_cycles_at_a_time :param :reader = 128;
+  field $max_bytes_at_a_time  :param         =  4 * KiB;
+  field $max_cycles_at_a_time :param         = 128;
   field $server_io;
   field $forked;
 
