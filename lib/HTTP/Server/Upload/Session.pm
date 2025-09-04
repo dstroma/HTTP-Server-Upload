@@ -19,12 +19,11 @@ class HTTP::Server::Upload::Session {
   field $query_string;
   field $response;
 
-  field $out_file_base;
   field $head_fh;
   field $body_fh;
   field $prog_fh;
-
   field $client_fh    :param(fh);
+
   field $server       :reader :param;
   field $reading      :reader = 'request';
   field $writing      :reader;
