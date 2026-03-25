@@ -1,6 +1,6 @@
 use v5.42;
 use experimental 'class';
-class HTTP::Server::Upload::Session {
+class HTTP::Server::Upload::Cx {
   use HTTP::Status qw(:constants status_message);
 
   field $com_time     = time();
@@ -309,13 +309,11 @@ class HTTP::Server::Upload::Session {
   }
 }
 
-1;
-
 __END__
 
 =head1 NAME
 
-HTTP::Server::Upload::Session - Class representing client sessions
+HTTP::Server::Upload::Cx - Class representing a client/connection
 
 =head1 DESCRIPTION
 

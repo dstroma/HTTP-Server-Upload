@@ -3,7 +3,7 @@ use experimental 'class';
 class HTTP::Server::Upload 0.01 {
   use IO::Socket ();
   use IO::Select ();
-  use HTTP::Server::Upload::Session ();
+  use HTTP::Server::Upload::Cx ();
   use constant KiB => 1024;
   use constant MiB => 1024*KiB;
   use constant GiB => 1024*MiB;
@@ -69,7 +69,6 @@ class HTTP::Server::Upload 0.01 {
   }
 
   method serve () {
-    my $req_count = 0;
     my $select    = IO::Select->new($server_io);
     my %sessions  = ();
     my $cleanup_time;
@@ -84,8 +83,7 @@ class HTTP::Server::Upload 0.01 {
           my $client = $server_io->accept;
           $select->add($client);
 
-          $sessions{$client} = HTTP::Server::Upload::Session->new(fh => $client, server => $self);
-          $req_count++;
+          $sessions{$client} = HTTP::Server::Upload::Cx->new(fh => $client, server => $self);
           next;
         }
 
@@ -153,28 +151,19 @@ class HTTP::Server::Upload 0.01 {
   }
 
   method filename_base_for_upload ($ident) {
-    if ($use_subdir) {
-      return "$store_dir/$ident/upload";
-    } else {
-      return "$store_dir/upload-$ident";
-    }
+    return "$store_dir/$ident/upload" if $use_subdir;
+    return "$store_dir/upload-$ident";
   }
 
   method filename_base_exists ($ident) {
-    if ($use_subdir) {
-      return true if -d "$store_dir/$ident/";
-    } else {
-      # return inside grep = a hackish 'any'
-      grep {
-        return true if -e $self->filename_base_for_upload($ident) . $_
-      } ('', '.head', '.body', '.prog', '.ok', '.ready');
-    }
+    return -d "$store_dir/$ident/" ? true : false if $use_subdir;
+    grep {
+      return true if -e $self->filename_base_for_upload($ident) . $_
+    } ('', '.head', '.body', '.prog', '.ok', '.ready');
     return false;
   }
 
 } #class
-
-1;
 
 __END__
 
