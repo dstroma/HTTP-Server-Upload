@@ -13,7 +13,7 @@ class HTTP::Server::Upload 0.01 {
   field $log_fh;
   field $listen               :param         = 6896;
   field $listen_queue         :param         = 10;
-  field $max_clients          :param         = 5;
+  field $max_clients          :param         = 10;
   field $auth_required        :param :reader = false;
   field $auth_file            :param         = './tmp/uploads/.auth';
   field $store_dir            :param :reader = './tmp/uploads';
@@ -32,6 +32,7 @@ class HTTP::Server::Upload 0.01 {
   field $max_cycles_at_a_time :param         = 128;
   field $server_io;
   field $forked;
+  field $started                             = false;
 
   ADJUST  { chop $store_dir if substr($store_dir, -1, 1) =~ m`[\/\\]` }
   DESTROY { $_[0]->stop }
@@ -53,10 +54,11 @@ class HTTP::Server::Upload 0.01 {
 
     warn "Server $server_io (PID $$) starting. Listening on $listen.\n";
     $self->serve;
+    $started = true;
   }
 
   method stop {
-    return if $forked;
+    return if $forked or not $started;
     warn "Server $server_io (PID $$) stopping.\n";
     close $log_fh if $log_fh;
   }
@@ -81,8 +83,15 @@ class HTTP::Server::Upload 0.01 {
         # New connection?
         if ($fh == $server_io) {
           my $client = $server_io->accept;
-          $select->add($client);
 
+          # Check for too many connections
+          if (%sessions >= $max_clients) {
+            warn "Reached client limit, refused new connection.\n";
+            $client->close;
+            next;
+          }
+
+          $select->add($client);
           $sessions{$client} = HTTP::Server::Upload::Cx->new(fh => $client, server => $self);
           next;
         }
@@ -293,10 +302,9 @@ A TCP/IP port number or unix domain socket file location.
 
 Queue size for listen, passed to the appropriate IO::Socket class constructor.
 
-=item B<max_clients> => 5
+=item B<max_clients> => 10
 
 Maximum number of simultaneous client connections.
-B<NOT IMPLEMENTED AT THIS TIME.>
 
 =item B<auth_required> => false
 
@@ -364,19 +372,16 @@ Timeout in seconds to pass to IO::Select if no clients are connected.
 
 Timeout for reading the HTTP header from the client. The client will be
 disconnected if no data is received for this number of seconds.
-B<NOT IMPLEMENTED AT THIS TIME.>
 
 =item B<read_timeout_body> => 60*15
 
 Timeout for reading the HTTP body from the client. The client will be
 disconnected if no data is received for this number of seconds.
-B<NOT IMPLEMENTED AT THIS TIME.>
 
 =item B<write_timeout> => 60
 
 Timeout for writing HTTP response data to the client. The client will be
 disconnected if no data can be sent for this number of seconds.
-B<NOT IMPLEMENTED AT THIS TIME.>
 
 =item B<max_header_size> => $number_of_bytes (default 64 KiB)
 

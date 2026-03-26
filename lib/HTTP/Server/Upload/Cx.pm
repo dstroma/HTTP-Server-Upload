@@ -214,13 +214,11 @@ class HTTP::Server::Upload::Cx {
   method check {
     my $elapsed = time() - $com_time;
     if ($writing) {
-      $self->&mark_done if $elapsed > 60;
+      $self->&mark_done if $elapsed > $self->server->write_timeout;
     } elsif ($reading) {
-      if ($reading eq 'body') {
-        $self->set_response(200) if $elapsed > 900;
-      } else {
-        $self->set_response(200) if $elapsed > 60;
-      }
+      $self->set_response(HTTP_REQUEST_TIMEOUT) if $elapsed > (
+        $reading eq 'body' ? $self->server->read_timeout_body : $self->server->read_timeout_head
+      );
     }
   }
 
