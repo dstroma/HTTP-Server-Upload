@@ -32,7 +32,7 @@ class HTTP::Server::Upload 0.01 {
   field $max_cycles_at_a_time :param         = 128;
   field $server_io;
   field $forked;
-  field $started                             = false;
+  field $started;
 
   ADJUST  { chop $store_dir if substr($store_dir, -1, 1) =~ m`[\/\\]` }
   DESTROY { $_[0]->stop }
@@ -40,7 +40,7 @@ class HTTP::Server::Upload 0.01 {
   method start {
     $forked = fork() and exit if $daemonize;
     $self->redirect_output    if $log_file;
-    $self->check_authfile     if $auth_required;
+    $self->read_authfile      if $auth_required;
 
     my %std_args = (Listen => $listen_queue, Blocking => 0);
     if ($listen =~ m/^\d+$/) {
@@ -52,20 +52,20 @@ class HTTP::Server::Upload 0.01 {
     }
     $server_io or die($IO::Socket::errstr || $@ || $! || 'Unknown error');
 
-    warn "Server $server_io (PID $$) starting. Listening on $listen.\n";
-    $self->serve;
+    warn "[NOTICE] Server $server_io PID $$ starting. Listening on $listen.\n";
     $started = true;
+    $self->serve;
   }
 
   method stop {
     return if $forked or not $started;
-    warn "Server $server_io (PID $$) stopping.\n";
+    warn "[NOTICE] Server $server_io (PID $$) stopping.\n";
     close $log_fh if $log_fh;
   }
 
   method redirect_output () {
     open $log_fh, '>>', $log_file
-      or die "Cannot open $log_file: $!\n";
+      or die "[FATAL] Cannot open $log_file: $!\n";
     *STDOUT = $log_fh;
     *STDERR = $log_fh;
   }
@@ -86,7 +86,7 @@ class HTTP::Server::Upload 0.01 {
 
           # Check for too many connections
           if (%sessions >= $max_clients) {
-            warn "Reached client limit, refused new connection.\n";
+            warn "[WARNING] Reached client limit, refused new connection.\n";
             $client->close;
             next;
           }
@@ -122,7 +122,7 @@ class HTTP::Server::Upload 0.01 {
 
       # Clean up
       if (!$cleanup_time or time() > $cleanup_time + 60) {
-        $self->check_authfile if $auth_required;
+        $self->read_authfile if $auth_required;
         $cleanup_time = time();
       }
 
@@ -132,7 +132,7 @@ class HTTP::Server::Upload 0.01 {
   # Authorization
   field %auth;
   field $authfile_mtime;
-  method check_authfile ($force_reload = undef) {
+  method read_authfile ($force_reload = undef) {
     return unless $auth_required;
     my $authfile_mtime_now = (stat($auth_file))[9];
 
@@ -140,18 +140,17 @@ class HTTP::Server::Upload 0.01 {
       if (open my $fh, '<', $auth_file) {
         %auth = ();
         while (my $line = <$fh>) {
-          $line =~ m/^\s*(.*)\s*$/;
-          $auth{$1} = true if $1;
+          $auth{$1} = true if $line =~ m/^\s*(.*)\s*$/;
         }
         close $fh;
         $authfile_mtime = (stat($auth_file))[9];
       } else {
-        die sprintf("WARNING - Cannot open auth file %s! $!", $auth_file);
+        die sprintf("[FATAL] Cannot open auth file %s! $!", $auth_file);
         return;
       }
     }
 
-    warn sprintf("NOTICE - No entries in auth file %s.\n", $auth_file) unless %auth;
+    warn sprintf("[WARNING] No entries in auth file %s.\n", $auth_file) unless %auth;
     return;
   }
 
