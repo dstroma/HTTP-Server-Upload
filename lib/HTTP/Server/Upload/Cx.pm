@@ -55,13 +55,13 @@ class HTTP::Server::Upload::Cx {
     my $msg  = status_message($code);
     my $cl   = length $msg;
     $response = [
-      'HTTP/1.0 ' . $code . ' ' . $msg    ,
-      'Server: upload-server-forking-3.pl',
-      'Content-Type: text/plain'          ,
-      'Content-Length: '.$cl              ,
-      'Connection: close'                 ,
-      ''                                  ,
-      $msg                                ,
+      'HTTP/1.0 ' . $code . ' ' . $msg  ,
+      'Server: HTTP::Server::Upload'    ,
+      'Content-Type: text/plain'        ,
+      'Content-Length: '.$cl            ,
+      'Connection: close'               ,
+      ''                                ,
+      $msg                              ,
     ];
     return;
   }

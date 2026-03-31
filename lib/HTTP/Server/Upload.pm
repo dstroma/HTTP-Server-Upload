@@ -59,7 +59,7 @@ class HTTP::Server::Upload 0.01 {
 
   method stop {
     return if $forked or not $started;
-    warn "[NOTICE] Server $server_io (PID $$) stopping.\n";
+    warn "[NOTICE] Server $server_io PID $$ stopping.\n";
     close $log_fh if $log_fh;
   }
 
