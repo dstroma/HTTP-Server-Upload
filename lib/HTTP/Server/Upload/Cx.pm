@@ -48,12 +48,13 @@ class HTTP::Server::Upload::Cx {
     return;
   }
 
-  method set_response ($http_status_or_psgi) {
+  method set_response ($http_status_or_psgi, $extra_message = undef) {
     $self->&switch_to_write_mode;
 
-    my $code = $http_status_or_psgi;
-    my $msg  = status_message($code);
-    my $cl   = length $msg;
+    my $code  = $http_status_or_psgi;
+    my $msg   = status_message($code);
+    my $msg_b = join("\n", status_message($code), $extra_message || ());
+    my $cl    = length $msg_b;
     $response = [
       'HTTP/1.0 ' . $code . ' ' . $msg  ,
       'Server: HTTP::Server::Upload'    ,
@@ -61,7 +62,7 @@ class HTTP::Server::Upload::Cx {
       'Content-Length: '.$cl            ,
       'Connection: close'               ,
       ''                                ,
-      $msg                              ,
+      $msg_b                            ,
     ];
     return;
   }
@@ -119,8 +120,9 @@ class HTTP::Server::Upload::Cx {
       return unless $is_upload;
 
       # Save headers
+      $server->prepare_subdir_for_upload($upload_id);
       open my $head_fh, '>', $self->full_filename_for('head')
-        or return $self->set_error(500);
+        or return $self->set_response(500, "Cannot open " . $self->full_filename_for('head') . ": " . $!);
       print $head_fh $request_raw;
       print $head_fh $headers_raw;
       close $head_fh;

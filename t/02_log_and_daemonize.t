@@ -1,9 +1,7 @@
 use v5.42;
 use Test::More 0.98;
-use HTTP::Server::Upload;
 use File::Temp qw(tempfile);
-
-say "Test script PID: $$";
+use HTTP::Server::Upload;
 
 foreach my $daemonize (false, true) {
   my ($temp_fh, $filename) = tempfile();

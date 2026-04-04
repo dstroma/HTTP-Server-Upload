@@ -171,6 +171,11 @@ class HTTP::Server::Upload 0.01 {
     return false;
   }
 
+  method prepare_subdir_for_upload ($ident) {
+    return unless $use_subdir;
+    mkdir "$store_dir/$ident" unless -d "$store_dir/$ident";
+  }
+
 } #class
 
 __END__
