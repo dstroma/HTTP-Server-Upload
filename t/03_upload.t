@@ -5,41 +5,57 @@ use Fcntl qw(:seek);
 use HTTP::Server::Upload;
 use constant DEBUG => false;
 
-my $dir = tempdir(CLEANUP => 1);
-my ($log_fh, $log_filename) = tempfile();
+my @children;
 
-DEBUG && say "Temp dir: $dir";
-DEBUG && say "Log file: $log_filename";
+foreach my $use_subdir (false, true) {
+  my $dir = tempdir(CLEANUP => 1);
+  my ($log_fh, $log_filename) = tempfile();
 
-# Start a test server
-my $child_pid = fork;
-if ($child_pid == 0) {
-  my $server = HTTP::Server::Upload->new(use_subdir => true, store_dir => $dir, log_file => $log_filename);
-  $server->start;
-  exit;
+  DEBUG && say "Temp dir: $dir";
+  DEBUG && say "Log file: $log_filename";
+
+  # Start a test server
+  my $child_pid = fork;
+  if ($child_pid == 0) {
+    my $server = HTTP::Server::Upload->new(use_subdir => $use_subdir, store_dir => $dir, log_file => $log_filename);
+    $server->start;
+    exit;
+  }
+  push @children, $child_pid;
+
+  # Upload file and Test completion
+  ok(
+    upload(store_dir => $dir, use_subdir => $use_subdir),
+    "Upload OK (use_subdir=$use_subdir)"
+  );
+
+  # Terminate server
+  kill 9, $child_pid;
+
+  # Debug sleep
+  DEBUG && say "Debug sleep...";
+  DEBUG && sleep 60;
 }
-
-# Do tests
-upload();
-
-# Terminate server
-kill 9, $child_pid;
-
-# Debug sleep
-DEBUG && say "Debug sleep...";
-DEBUG && sleep 60;
 
 # Done
 done_testing();
+
+# Make sure children are stopped
+END {
+  # Just in case
+  eval { kill 9, $_ } for @children;
+}
 
 ###############################################################################
 
 sub upload (%params) {
   require IO::Socket::INET;
-  my $host      = $params{'host'} // "localhost";
-  my $port      = $params{'port'} // 6896;
-  my $size      = $params{'size'} // 1024*16;
-  my $upload_id = $params{'upload_id'} // time() . int(rand(1000));
+  my $store_dir  = $params{'store_dir'};
+  my $use_subdir = $params{'use_subdir'};
+  my $host       = $params{'host'} // "localhost";
+  my $port       = $params{'port'} // 6896;
+  my $size       = $params{'size'} // 1024*16;
+  my $upload_id  = $params{'upload_id'} // time() . int(rand(1000));
 
   # Connect to server
   sleep 2;
@@ -83,9 +99,14 @@ sub upload (%params) {
   sleep 2;
 
   # Compare saved data to original
-  use Digest::MD5;
-  open(my $fh1, '<', "./t/upload.txt"             ) or die "Cannot open file: $!";
-  open(my $fh2, '<', "$dir/$upload_id/upload.body") or die "Cannot open file: $!";
+  my $orig_file = './t/upload.txt';
+  my $dest_file = $use_subdir ?
+                  "$store_dir/$upload_id/upload.body" :
+                  "$store_dir/upload-$upload_id.body";
+
+  require Digest::MD5;
+  open(my $fh1, '<', $orig_file) or die "Cannot open $orig_file: $!";
+  open(my $fh2, '<', $dest_file) or die "Cannot open $dest_file: $!";
 
   my $dig1 = Digest::MD5->new;
   my $dig2 = Digest::MD5->new;
@@ -93,8 +114,8 @@ sub upload (%params) {
   $dig1->addfile($fh1);
   $dig2->addfile($fh2);
 
-  is($dig1->digest => $dig2->digest, "Uploaded file matches original");
-
   close $fh1;
   close $fh2;
+
+  return ($dig1->digest eq $dig2->digest);
 }
