@@ -4,6 +4,7 @@ class HTTP::Server::Upload 0.01 {
   use IO::Socket ();
   use IO::Select ();
   use HTTP::Server::Upload::Cx ();
+  use constant DEFAULT_PORT => 6896;
   use constant KiB => 1024;
   use constant MiB => 1024*KiB;
   use constant GiB => 1024*MiB;
@@ -11,7 +12,7 @@ class HTTP::Server::Upload 0.01 {
   field $daemonize            :param         = false;
   field $log_file             :param         = undef;
   field $log_fh;
-  field $listen               :param         = 6896;
+  field $listen               :param         = DEFAULT_PORT;
   field $listen_queue         :param         = 10;
   field $max_clients          :param         = 10;
   field $auth_required        :param :reader = false;

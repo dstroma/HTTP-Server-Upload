@@ -1,13 +1,50 @@
 use v5.42;
 use Test::More 0.98;
-use File::Temp qw/tempfile tempdir/;
+use File::Temp qw(tempfile tempdir);
 use Fcntl qw(:seek);
+use Net::EmptyPort qw(empty_port check_port);
 use HTTP::Server::Upload;
 use constant DEBUG => false;
 
-my @children;
+our @children;
+our $default_port = HTTP::Server::Upload->DEFAULT_PORT;
 
-foreach my $use_subdir (false, true) {
+# Test with default port, skip if in use
+SKIP:
+{
+  my $port = $default_port;
+
+  skip "Port $port not available, cannot test default port", 2
+    if check_port $port;
+
+  test_upload(use_subdir => false, comment => "Default port $port (use_subdir=false)");
+  test_upload(use_subdir =>  true, comment => "Default port $port (use_subdir=true)");
+}
+
+# Test with custom port
+{
+  my $port = empty_port($default_port + 1); # specify lower bound
+  test_upload(use_subdir => true, listen => $port, comment => "Custom port $port");
+}
+
+done_testing();
+
+# TODO
+# - Check unix domain socket
+# - Check authorization, id/placeholder, security limits, load testing/benchmarking
+# - Look into using Test::TCP?
+
+###############################################################################
+# Make sure children are stopped
+
+END { eval { kill 9, $_ } for @children }
+
+###############################################################################
+# Subs
+
+sub test_upload(%params) {
+  my $comment = delete $params{'comment'};
+
   my $dir = tempdir(CLEANUP => 1);
   my ($log_fh, $log_filename) = tempfile();
 
@@ -15,9 +52,10 @@ foreach my $use_subdir (false, true) {
   DEBUG && say "Log file: $log_filename";
 
   # Start a test server
+  my %std_params = (store_dir => $dir, log_file => $log_filename);
   my $child_pid = fork;
   if ($child_pid == 0) {
-    my $server = HTTP::Server::Upload->new(use_subdir => $use_subdir, store_dir => $dir, log_file => $log_filename);
+    my $server = HTTP::Server::Upload->new(%std_params, %params);
     $server->start;
     exit;
   }
@@ -25,36 +63,25 @@ foreach my $use_subdir (false, true) {
 
   # Upload file and Test completion
   ok(
-    upload(store_dir => $dir, use_subdir => $use_subdir),
-    "Upload OK (use_subdir=$use_subdir)"
+    upload(%std_params, %params),
+    "Upload OK ($comment)"
   );
 
   # Terminate server
   kill 9, $child_pid;
 
   # Debug sleep
-  DEBUG && say "Debug sleep...";
-  DEBUG && sleep 60;
+  DEBUG && say "Debug break, press enter:";
+  DEBUG && <STDIN>;
 }
-
-# Done
-done_testing();
-
-# Make sure children are stopped
-END {
-  # Just in case
-  eval { kill 9, $_ } for @children;
-}
-
-###############################################################################
 
 sub upload (%params) {
   require IO::Socket::INET;
   my $store_dir  = $params{'store_dir'};
   my $use_subdir = $params{'use_subdir'};
-  my $host       = $params{'host'} // "localhost";
-  my $port       = $params{'port'} // 6896;
-  my $size       = $params{'size'} // 1024*16;
+  my $host       = $params{'host'}   // "localhost";
+  my $port       = $params{'listen'} // 6896;
+  my $size       = $params{'size'}   // 1024*16;
   my $upload_id  = $params{'upload_id'} // time() . int(rand(1000));
 
   # Connect to server
@@ -105,14 +132,14 @@ sub upload (%params) {
                   "$store_dir/upload-$upload_id.body";
 
   require Digest::MD5;
-  open(my $fh1, '<', $orig_file) or die "Cannot open $orig_file: $!";
-  open(my $fh2, '<', $dest_file) or die "Cannot open $dest_file: $!";
+  open(my $fh1, '<', $orig_file) or die "Test cannot open original file    '$orig_file': $!";
+  open(my $fh2, '<', $dest_file) or die "Test cannot open destination file '$dest_file': $!";
 
   my $dig1 = Digest::MD5->new;
   my $dig2 = Digest::MD5->new;
 
-  $dig1->addfile($fh1);
-  $dig2->addfile($fh2);
+  $dig1->addfile($fh1) if $fh1;
+  $dig2->addfile($fh2) if $fh2;
 
   close $fh1;
   close $fh2;
