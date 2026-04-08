@@ -14,7 +14,7 @@ SKIP:
 {
   my $port = $default_port;
 
-  skip "Port $port not available, cannot test default port", 2
+  skip "Port $port not available, cannot test default port", 1
     if check_port $port;
 
   test_upload(use_subdir =>  true, comment => "Default port $port");
@@ -29,11 +29,20 @@ SKIP:
   test_upload(use_subdir => false, listen => $port2, comment => "Custom port $port2 (use_subdir=false)");
 }
 
+# Test unix domain socket
+SKIP:
+{
+  skip "IO::Socket::UNIX not available, will not test listening on unix domain socket", 1
+    unless eval { require IO::Socket::UNIX; 1 };
+
+  my ($socket_fh, $socket_file) = tempfile();
+  test_upload(use_subdir => true, listen => $socket_file, comment => "Listen on unix domain socket");
+}
+
 done_testing();
 
 # TODO
-# - Check unix domain socket
-# - Check authorization, id/placeholder, security limits, load testing/benchmarking
+# - Check authorization, id/placeholder, security limits, do load testing
 # - Look into using Test::TCP?
 
 ###############################################################################
@@ -47,6 +56,7 @@ END { eval { kill 9, $_ } for @children }
 sub test_upload(%params) {
   my $comment = delete $params{'comment'};
 
+  # Setup directories
   my $dir = tempdir(CLEANUP => 1);
   my ($log_fh, $log_filename) = tempfile();
 
@@ -78,21 +88,39 @@ sub test_upload(%params) {
 }
 
 sub upload (%params) {
-  require IO::Socket::INET;
   my $store_dir  = $params{'store_dir'};
   my $use_subdir = $params{'use_subdir'};
   my $host       = $params{'host'}   // "localhost";
-  my $port       = $params{'listen'} // 6896;
+  my $listen     = $params{'listen'} // 6896;
   my $size       = $params{'size'}   // 1024*16;
   my $upload_id  = $params{'upload_id'} // time() . int(rand(1000));
 
+  my ($port, $udsfile);
+  if ($listen =~ m/^\d+$/) {
+    $port    = $listen;
+  } else {
+    $udsfile = $listen;
+  }
+
   # Connect to server
   sleep 2;
-  my $sock = IO::Socket::INET->new(
-    PeerHost => $host,
-    PeerPort => $port,
-    Proto    => 'tcp'
-  ) or die "Client can't connect to server: $!";
+  my $sock;
+  if ($port) {
+    require IO::Socket::INET;
+    $sock = IO::Socket::INET->new(
+      PeerHost => $host,
+      PeerPort => $port,
+      Proto    => 'tcp'
+    ) or die "Client can't connect to server: $IO::Socket::errstr. $!";
+  } elsif ($udsfile) {
+    require IO::SOCKET::UNIX;
+    $sock = IO::Socket::UNIX->new(
+      Type  => IO::Socket::SOCK_STREAM,
+      Peer  => $udsfile,
+    ) or die "Client cannot connect to server: $IO::Socket::errstr. $!";
+  } else {
+    die 'Listen is not a port or unix domain socket!';
+  }
 
   # Read DATA size
   open(my $DATA, '<', './t/upload.txt') or die "Cannot open t/upload.txt: $!";

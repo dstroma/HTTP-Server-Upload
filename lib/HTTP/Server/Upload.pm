@@ -46,10 +46,11 @@ class HTTP::Server::Upload 0.01 {
     my %std_args = (Listen => $listen_queue, Blocking => 0);
     if ($listen =~ m/^\d+$/) {
       require IO::Socket::INET;
-      $server_io = IO::Socket::INET->new(%std_args, LocalPort => $listen, ReuseAddr => 1)
+      $server_io = IO::Socket::INET->new(%std_args, LocalPort => $listen, ReuseAddr => 1);
     } else {
       require IO::Socket::UNIX;
-      $server_io = IO::Socket::UNIX->new(%std_args, Local => $listen)
+      unlink $listen; # Will get Address already in use error if the socket file already exists
+      $server_io = IO::Socket::UNIX->new(%std_args, Local => $listen, Type => IO::Socket::SOCK_STREAM);
     }
     $server_io or die($IO::Socket::errstr || $@ || $! || 'Unknown error');
 
