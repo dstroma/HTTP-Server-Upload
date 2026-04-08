@@ -48,6 +48,7 @@
       },
       "test" : {
          "requires" : {
+            "Net::EmptyPort" : "0",
             "Test::More" : "0.98"
          }
       }

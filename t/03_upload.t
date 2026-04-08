@@ -17,14 +17,16 @@ SKIP:
   skip "Port $port not available, cannot test default port", 2
     if check_port $port;
 
-  test_upload(use_subdir => false, comment => "Default port $port (use_subdir=false)");
-  test_upload(use_subdir =>  true, comment => "Default port $port (use_subdir=true)");
+  test_upload(use_subdir =>  true, comment => "Default port $port");
 }
 
 # Test with custom port
 {
-  my $port = empty_port($default_port + 1); # specify lower bound
-  test_upload(use_subdir => true, listen => $port, comment => "Custom port $port");
+  my $port1 = empty_port($default_port + 1); # specify lower bound
+  test_upload(use_subdir => true,  listen => $port1, comment => "Custom port $port1 (use_subdir=true)");
+
+  my $port2 = empty_port($default_port + 2); # specify lower bound
+  test_upload(use_subdir => false, listen => $port2, comment => "Custom port $port2 (use_subdir=false)");
 }
 
 done_testing();
