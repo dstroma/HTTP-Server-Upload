@@ -113,7 +113,7 @@ sub upload (%params) {
       Proto    => 'tcp'
     ) or die "Client can't connect to server: $IO::Socket::errstr. $!";
   } elsif ($udsfile) {
-    require IO::SOCKET::UNIX;
+    require IO::Socket::UNIX;
     $sock = IO::Socket::UNIX->new(
       Type  => IO::Socket::SOCK_STREAM,
       Peer  => $udsfile,
