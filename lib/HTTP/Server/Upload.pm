@@ -195,6 +195,9 @@ HTTP::Server::Upload - HTTP server just for uploads
     );
     $server->start;
 
+    # Or use the command line script (example with custom port)
+    $ http-server-upload.pl --listen=8888 --daemonize=1
+
 =head1 DESCRIPTION
 
 HTTP::Server::Upload is a lightweight standalone HTTP server specialized

@@ -39,10 +39,16 @@ SKIP:
   test_upload(use_subdir => true, listen => $socket_file, comment => "Listen on unix domain socket");
 }
 
+# Test with client-supplied ID
+{
+  my $upload_id = "upid-abcdefg_$$";
+  test_upload(use_subdir => true, client => { upload_id => $upload_id }, comment => "Client-supplied ID");
+}
+
 done_testing();
 
 # TODO
-# - Check authorization, id/placeholder, security limits, do load testing
+# - Check authorization, check require placeholder, check security limits, do load testing
 # - Look into using Test::TCP?
 
 ###############################################################################
@@ -55,6 +61,8 @@ END { eval { kill 9, $_ } for @children }
 
 sub test_upload(%params) {
   my $comment = delete $params{'comment'};
+  my %extra_client_params = $params{'client'} ? (delete $params{'client'})->%* : ();
+  my %extra_server_params = $params{'server'} ? (delete $params{'server'})->%* : ();
 
   # Setup directories
   my $dir = tempdir(CLEANUP => 1);
@@ -67,7 +75,7 @@ sub test_upload(%params) {
   my %std_params = (store_dir => $dir, log_file => $log_filename);
   my $child_pid = fork;
   if ($child_pid == 0) {
-    my $server = HTTP::Server::Upload->new(%std_params, %params);
+    my $server = HTTP::Server::Upload->new(%std_params, %params, %extra_server_params);
     $server->start;
     exit;
   }
@@ -75,7 +83,7 @@ sub test_upload(%params) {
 
   # Upload file and Test completion
   ok(
-    upload(%std_params, %params),
+    upload(%std_params, %params, %extra_client_params),
     "Upload OK ($comment)"
   );
 
@@ -83,8 +91,8 @@ sub test_upload(%params) {
   kill 9, $child_pid;
 
   # Debug sleep
-  DEBUG && say "Debug break, press enter:";
-  DEBUG && <STDIN>;
+  DEBUG && say "Debug sleep (15 seconds)";
+  DEBUG && sleep 15;
 }
 
 sub upload (%params) {
@@ -160,6 +168,9 @@ sub upload (%params) {
   my $dest_file = $use_subdir ?
                   "$store_dir/$upload_id/upload.body" :
                   "$store_dir/upload-$upload_id.body";
+
+  DEBUG && say "Original file: $orig_file";
+  DEBUG && say "Uploaded file: $dest_file";
 
   require Digest::MD5;
   open(my $fh1, '<', $orig_file) or die "Test cannot open original file    '$orig_file': $!";
