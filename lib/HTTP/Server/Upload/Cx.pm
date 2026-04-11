@@ -295,6 +295,9 @@ class HTTP::Server::Upload::Cx {
           if -e $self->full_filename_for('head')
           or -e $self->full_filename_for('body');
       }
+
+      # Auto-assign ID if needed
+      $upload_id = $self->auto_upload_id unless length $upload_id;
     } else {
       $self->set_response(HTTP_METHOD_NOT_ALLOWED);
     }
@@ -306,6 +309,10 @@ class HTTP::Server::Upload::Cx {
     return join('.', $server->filename_base_for_upload($upload_id), $1)
       if $filetype =~ m/^(head|body|prog)/;
     return undef;
+  }
+
+  method auto_upload_id () {
+    return time() . '-' . int(rand(2**16));
   }
 }
 

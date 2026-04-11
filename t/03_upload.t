@@ -15,7 +15,7 @@ SKIP:
   my $port = $default_port;
 
   skip "Port $port not available, cannot test default port", 1
-    if check_port $port;
+    if check_port $port; # check_port returns true if port is in use
 
   test_upload(use_subdir =>  true, comment => "Default port $port");
 }
@@ -39,16 +39,77 @@ SKIP:
   test_upload(use_subdir => true, listen => $socket_file, comment => "Listen on unix domain socket");
 }
 
-# Test with client-supplied ID
+# Test with no id, let server auto-assign
 {
-  my $upload_id = "upid-abcdefg_$$";
-  test_upload(use_subdir => true, client => { upload_id => $upload_id }, comment => "Client-supplied ID");
+  my $port = empty_port($default_port);
+  test_upload(
+    use_subdir  => true,
+    listen      => $port,
+    client      => { upload_id => undef },
+    comment     => "Auto-assign upload id",
+  );
+}
+
+# Test with ID required (do not give ID)
+{
+  my $port = empty_port($default_port);
+  test_upload(
+    use_subdir  => true,
+    listen      => $port,
+    server      => { require_id => true },
+    client      => { upload_id => undef },
+    comment     => "ID required -> should fail without one",
+    should_fail => true,
+  );
+}
+
+# Test with ID required (give ID)
+{
+  my $port = empty_port($default_port);
+  my $upload_id = "upid-abc000_$$";
+  test_upload(
+    use_subdir  => true,
+    listen      => $port,
+    server      => { require_id => true },
+    client      => { upload_id => $upload_id },
+    comment     => "Client-supplied ID"
+  );
+}
+
+# Test with placeholder
+{
+  # Give id and have placeholder ready
+  my $port = empty_port($default_port);
+  my $upload_id = "upid-def111_$$";
+  test_upload(
+    use_subdir  => true,
+    listen      => $port,
+    server      => { require_id => true, require_placeholder => true },
+    client      => { upload_id => $upload_id },
+    comment     => "Client-supplied ID, placeholder required",
+    make_placeholder => true,
+  );
+}
+
+# Test with placeholder without making one, should fail
+{
+  my $port = empty_port($default_port);
+  my $upload_id = "upid-ghi222_$$";
+  test_upload(
+    use_subdir  => true,
+    listen      => $port,
+    server      => { require_id => true, require_placeholder => true },
+    client      => { upload_id => $upload_id },
+    comment     => "No ID, placeholder required -> should fail",
+    make_placeholder => false,
+    should_fail => true,
+  );
 }
 
 done_testing();
 
 # TODO
-# - Check authorization, check require placeholder, check security limits, do load testing
+# - Check authorization, security limits, do load testing
 # - Look into using Test::TCP?
 
 ###############################################################################
@@ -60,7 +121,13 @@ END { eval { kill 9, $_ } for @children }
 # Subs
 
 sub test_upload(%params) {
-  my $comment = delete $params{'comment'};
+  state $cnt = 0;
+  $cnt++;
+  DEBUG && say "Test $cnt starting...";
+
+  my $comment     = delete $params{'comment'};
+  my $should_fail = delete $params{'should_fail'};
+  my $placehold   = delete $params{'make_placeholder'};
   my %extra_client_params = $params{'client'} ? (delete $params{'client'})->%* : ();
   my %extra_server_params = $params{'server'} ? (delete $params{'server'})->%* : ();
 
@@ -81,16 +148,34 @@ sub test_upload(%params) {
   }
   push @children, $child_pid;
 
+  # Make placeholder for server?
+  if ($placehold) {
+    my $store_dir  = $dir;
+    my $use_subdir = $params{'use_subdir'};
+    my $upload_id  = $params{'upload_id'} || $extra_client_params{'upload_id'};
+    die "Cannot determine store_dir"  unless defined $store_dir;
+    die "Cannot determine use_subdir" unless defined $use_subdir;
+    die "Cannot determine upload_id"  unless defined $upload_id;
+    if ($use_subdir) {
+      mkdir "$store_dir/$upload_id/";
+    } else {
+      open my $fh, '>', "$store_dir/upload-$upload_id.ready";
+      print $fh, 'Ready';
+      close $fh;
+    }
+  }
+
   # Upload file and Test completion
   ok(
-    upload(%std_params, %params, %extra_client_params),
-    "Upload OK ($comment)"
+    (upload(%std_params, %params, %extra_client_params) xor $should_fail),
+    "Upload test ($comment)"
   );
 
   # Terminate server
   kill 9, $child_pid;
 
   # Debug sleep
+  DEBUG && say "...test $cnt done.\n\n";
   DEBUG && say "Debug sleep (15 seconds)";
   DEBUG && sleep 15;
 }
@@ -102,6 +187,10 @@ sub upload (%params) {
   my $listen     = $params{'listen'} // 6896;
   my $size       = $params{'size'}   // 1024*16;
   my $upload_id  = $params{'upload_id'} // time() . int(rand(1000));
+  my $placehold  = $params{'make_placeholder'};
+
+  # Override upload_id?
+  $upload_id = '' if exists $params{'upload_id'} and not defined $params{'upload_id'};
 
   my ($port, $udsfile);
   if ($listen =~ m/^\d+$/) {
@@ -150,6 +239,15 @@ sub upload (%params) {
   print $sock "Connection: close\r\n";
   print $sock "\r\n";
 
+  my @response;
+
+  # Check for early server response
+  my $select = IO::Select->new($sock);
+  if ($select->can_read(1)) {
+    push @response, $_ while <$sock>;
+  }
+  return undef if @response and $response[0] !~ m/200\s+OK/;
+
   # Stream file body in chunks
   while (my $line = <$DATA>) {
     print $sock $line;
@@ -157,11 +255,47 @@ sub upload (%params) {
   }
   close $DATA;
 
+  # Read response
+  push @response, $_ while <$sock>;
+
   DEBUG && say "Sent data.\n";
-  DEBUG && print "Server said: $_" for <$sock>;
+  DEBUG && print "Server said: $_" for @response;
   DEBUG && print "\n\n";
   close $sock;
   sleep 2;
+
+  return undef unless $response[0] =~ m/200\s+OK/;
+
+  # If we let the server assign the upload_id, we have to figure it out
+  if ($upload_id eq '') {
+    my @items;
+    opendir(my $DH, $store_dir) or die "Can't open directory: $!";
+    while (my $item = readdir($DH)) {
+      push @items, $item if $item ne '.' and $item ne '..';
+    }
+    closedir($DH);
+
+    if ($use_subdir) {
+      if (@items > 1) {
+        warn "Unexpected files in temporary directory\n";
+        say $_ for @items;
+        say "Press enter"; <STDIN>;
+        die;
+      }
+      $upload_id = shift @items;
+    } else {
+      my $bodies = 0;
+      foreach my $item (@items) {
+        if ($item =~ m/^(.+)\.body$/) {
+          $upload_id = $1;
+          $bodies++;
+        }
+      }
+      die "Cannot determine upload id" unless $upload_id and length $upload_id;
+      die "More than one body" if $bodies > 1;
+    }
+    DEBUG && say "Discovered upload_id: $upload_id";
+  }
 
   # Compare saved data to original
   my $orig_file = './t/upload.txt';
