@@ -91,6 +91,8 @@ SKIP:
   );
 }
 
+# Authorization Tests #
+
 # Test with placeholder without making one, should fail
 {
   my $port = empty_port($default_port);
@@ -106,10 +108,45 @@ SKIP:
   );
 }
 
+# Test authorization
+{
+  my $port = empty_port($default_port);
+  test_upload(
+    use_subdir  => true,
+    listen      => $port,
+    server      => { auth_required => true, auth_file => 't/auth.txt' },
+    comment     => "Auth required -> no token should fail",
+    should_fail => true,
+  );
+}
+
+foreach my $wrong_token ('Bearer 123_45', 'Bearer abc_defg', 'Beerer abc_def', 'Adhoc Token') {
+  my $port = empty_port($default_port);
+  test_upload(
+    use_subdir  => true,
+    listen      => $port,
+    server      => { auth_required => true, auth_file => 't/auth.txt' },
+    client      => { authorization => $wrong_token },
+    comment     => "Auth required -> wrong token '$wrong_token' should fail",
+    should_fail => true,
+  );
+}
+
+foreach my $right_token ('Bearer 123_456', 'Bearer abc_def', 'Adhoc Token Style 1', 'Adhoc Token Style 2') {
+  my $port = empty_port($default_port);
+  test_upload(
+    use_subdir  => true,
+    listen      => $port,
+    server      => { auth_required => true, auth_file => 't/auth.txt' },
+    client      => { authorization => $right_token },
+    comment     => "Auth with correct token '$right_token'",
+  );
+}
+
 done_testing();
 
 # TODO
-# - Check authorization, security limits, do load testing
+# - Check security limits, do load testing
 # - Look into using Test::TCP?
 
 ###############################################################################
@@ -236,6 +273,8 @@ sub upload (%params) {
   print $sock "Host: $host\r\n";
   print $sock "Content-Length: $data_size\r\n";
   print $sock "Content-Type: multipart/form-data; boundary=$boundary\r\n";
+  print $sock "Authorization: $params{'authorization'}\r\n"
+    if exists $params{'authorization'};
   print $sock "Connection: close\r\n";
   print $sock "\r\n";
 

@@ -1,0 +1,4 @@
+Bearer 123_456
+Bearer abc_def
+Adhoc Token Style 1
+Adhoc Token Style 2
