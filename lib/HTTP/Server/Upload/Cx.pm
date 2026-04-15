@@ -297,7 +297,7 @@ class HTTP::Server::Upload::Cx {
       }
 
       # Auto-assign ID if needed
-      $upload_id = $self->auto_upload_id unless length $upload_id;
+      $upload_id = $self->auto_id unless length $upload_id;
     } else {
       $self->set_response(HTTP_METHOD_NOT_ALLOWED);
     }
@@ -311,7 +311,7 @@ class HTTP::Server::Upload::Cx {
     return undef;
   }
 
-  method auto_upload_id () {
+  method auto_id () {
     return time() . '-' . int(rand(2**16));
   }
 }
