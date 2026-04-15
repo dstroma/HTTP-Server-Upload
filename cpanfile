@@ -1,4 +1,4 @@
-requires perl => 'v5.42';
+requires perl => 'v5.40';
 
 requires 'HTTP::Status' => '6.00';
 

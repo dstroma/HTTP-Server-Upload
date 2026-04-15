@@ -1,5 +1,5 @@
 #!perl
-use v5.42;
+use v5.40;
 use HTTP::Server::Upload;
 
 # We parse our own arguments

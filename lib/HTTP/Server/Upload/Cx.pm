@@ -1,4 +1,4 @@
-use v5.42;
+use v5.40;
 use experimental 'class';
 class HTTP::Server::Upload::Cx {
   use HTTP::Status qw(:constants status_message);
@@ -33,23 +33,23 @@ class HTTP::Server::Upload::Cx {
   field $is_upload   = false;
   field $upload_id;
 
-  my method switch_to_write_mode () {
+  my $switch_to_write_mode = method () {
     $reading    = false;
     $writing    = true;
     $com_errors = 0;
     $com_time   = time();
     return;
-  }
+  };
 
-  my method mark_done () {
+  my $mark_done = method () {
     $writing    = false;
     $done       = true;
     $client_fh  = undef;
     return;
-  }
+  };
 
   method set_response ($http_status_or_psgi, $extra_message = undef) {
-    $self->&switch_to_write_mode;
+    $self->$switch_to_write_mode;
 
     my $code  = $http_status_or_psgi;
     my $msg   = status_message($code);
@@ -193,7 +193,7 @@ class HTTP::Server::Upload::Cx {
       my $wrote = syswrite $client_fh, $res_buf, 1, $bytes_written;
       unless ($wrote) {
         $com_errors++;
-        return $self->mark_done
+        return $self->$mark_done
           if $com_errors > 60;
         return;
       }
@@ -210,13 +210,13 @@ class HTTP::Server::Upload::Cx {
     }
 
     # Done writing
-    $self->&mark_done;
+    $self->$mark_done;
   }
 
   method check {
     my $elapsed = time() - $com_time;
     if ($writing) {
-      $self->&mark_done if $elapsed > $self->server->write_timeout;
+      $self->$mark_done if $elapsed > $self->server->write_timeout;
     } elsif ($reading) {
       $self->set_response(HTTP_REQUEST_TIMEOUT) if $elapsed > (
         $reading eq 'body' ? $self->server->read_timeout_body : $self->server->read_timeout_head

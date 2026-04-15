@@ -8,6 +8,7 @@ jobs:
         perl:
           [
             "5.42",
+            "5.40",
           ]
     name: Perl ${{ matrix.perl }}
     steps:

@@ -43,7 +43,7 @@
       "runtime" : {
          "requires" : {
             "HTTP::Status" : "6.00",
-            "perl" : "v5.42.0"
+            "perl" : "v5.40.0"
          }
       },
       "test" : {

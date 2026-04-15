@@ -307,7 +307,7 @@ to accept uploads of large sizes to all locations.
 # SYSTEM REQUIREMENTS
 
 This module takes advantage of modern perl features such as subroutine
-signatures and the new 'class' keyword, thus perl 5.42 is required.
+signatures and the new 'class' keyword, thus perl 5.40 is required.
 
 # LICENSE
 

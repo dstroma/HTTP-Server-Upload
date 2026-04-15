@@ -1,4 +1,4 @@
-use v5.42;
+use v5.40;
 use experimental 'class';
 class HTTP::Server::Upload 0.01 {
   use IO::Socket ();
@@ -515,7 +515,7 @@ to accept uploads of large sizes to all locations.
 =head1 SYSTEM REQUIREMENTS
 
 This module takes advantage of modern perl features such as subroutine
-signatures and the new 'class' keyword, thus perl 5.42 is required.
+signatures and the new 'class' keyword, thus perl 5.40 is required.
 
 =head1 LICENSE
 
